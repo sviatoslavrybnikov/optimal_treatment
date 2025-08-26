@@ -1,7 +1,7 @@
 %====================
 % Code for: "Integrating gene drives with established pest controls to mitigate spillover risk"
 % Authors: Sviatoslav R. Rybnikov, Adam Lampert, Gili Greenbaum
-% Description: the code indetifies the optimal multi-treatem strategy (gene drives/pesticides/sterile males)
+% Description: The code identifies the optimal multi-treatment strategy (gene drives/pesticides/sterile males)
 %====================
 
 clear all;
@@ -21,11 +21,11 @@ q0=0.01%initial frequency of gene0drove allele
 n0=1%initial population density (carrying capacity)
 
 disp('Per-unit treatment costs:');
-alpha=0%pesticides (relative ti spillover)
-beta=0%sterile males (relative ti spillover)
+alpha=0.6%pesticides (relative ti spillover)
+beta=3%sterile males (relative ti spillover)
 
 disp('Computational parameters:');
-st=5e-3%accuracy
+st=1e-4%accuracy
 tmax=40%number of generations
 
 %====================
@@ -44,14 +44,14 @@ function res_n=myround(arg_n,arg_st)
 end%myround
 
 %--------------------
-% Caclulates population density in the next generation based on Beverton-Holt growth model
+% Calculates population density in the next generation based on the Beverton-Holt growth model
 %--------------------
 function res_n=BH(arg_n,arg_r)
  res_n=arg_r*arg_n/(1+(arg_r-1)*arg_n);
 end%BH
 
 %--------------------
-% Caclulates dynamics od population with gene drives
+% Calculates dynamics of population with gene drives
 % Returns:
 % (1) DynQ = dynamics of gene-drive allele frequecny
 % (2) DunN = dynamics of population density
@@ -142,13 +142,13 @@ end%DP
 % Pestoes dynamics of population density under optimal treatment strategy
 % Returns Nopt = (2T+1)-element vector:
 % - initial density no (1st element)
-% - T pairs of values showing population denisty in T generations: before and after treatment
-% In odd elements except 1 (i.e. 3, 5 ..., 2T+1)
+% - T pairs of values showing population density in T generations: before and after treatment
+% In odd elements except 1 (i.e., 3, 5 ..., 2T+1)
 % - integer part codes the used treatmentL 0 = none, 1 = pesticides, 2 = sterile males, 3 = both
-% - decimal part codes population denisty
-% Examles:
-% - "1.678" = population density of 0.678 raeched by pesticide application (1)
-% - "2.345" = population density of 0.345 raeched by sterile-male release (2)
+% - decimal part codes population density
+% Examples:
+% - "1.678" = population density of 0.678 reached by pesticide application (1)
+% - "2.345" = population density of 0.345 reached by sterile-male release (2)
 %--------------------
 function Res_Nopt=get_Nopt(arg_Xrem_opt,arg_W,arg_n0)
  global r st;
@@ -180,9 +180,9 @@ Nopt=get_Nopt(Xrem_opt,DynW,n0);%restores population dynamics followomg the opti
 % RESULTS
 % Saves the output row containing:
 % - 6 parameters (s, c, h, r, alpha, beta)
-% - 2T+1 - dynamics of population denisty
+% - 2T+1 - dynamics of population density
 % - T+1 - dynamics of gene-drive carriers
-% - totla cost of eradication
+% - total cost of eradication
 %====================
 Out=[s c h r alpha beta Nopt DynQc' Ctot(1+round(n0/st))];%output
 save('-ascii','out.dat','Out');
