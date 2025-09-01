@@ -190,9 +190,6 @@ disp('Identifying the optimal treatment strategy...');
 [Xrem_opt,Ctot]=DP(DynQc,DynW,alpha,beta);
 Nopt=get_Nopt(Xrem_opt,DynW,n0);%restores population dynamics followomg the optimal solution
 
-Z=fix(Nopt(3:2:end))'
-uZ=unique(Z)
-
 %====================
 % RESULTS
 % Saves the output row containing:
@@ -202,7 +199,6 @@ uZ=unique(Z)
 % - total cost of eradication
 %====================
 Out=[s c h r alpha beta Nopt DynQc' Ctot(1+round(n0/st))];%output
-CC=Out(end)
 save('-ascii','out.dat','Out');
 disp('The strategy found and saved.');
 toc;
