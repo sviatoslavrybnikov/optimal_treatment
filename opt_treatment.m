@@ -36,11 +36,7 @@ tmax=40%number of generations
 % Rounds population density to the nearest discrete state or to zero 
 %--------------------
 function res_n=myround(arg_n,arg_st)
- if arg_n<arg_st
-  res_n=0;
- else
-  res_n=arg_st*round(arg_n/arg_st);
- end 
+ res_n=arg_st*round(arg_n/arg_st)*(arg_n>=arg_st);
 end%myround
 
 %--------------------
@@ -88,51 +84,69 @@ function [Res_Xrem_opt,Res_Ctot]=DP(arg_Qr,arg_W,arg_alpha,arg_beta)
  T=size(arg_Qr,1);%number of generations+1
  Res_Xrem_opt=zeros(numel(X),T);%optimal actions - removals
  U_opt=zeros(numel(X),T);%optimal costs
- Res_Xrem_opt(:,T)=0;
  U_opt(:,T)=X*arg_Qr(T);
+ 
+ %backward iterations
  for t=T-1:-1:1%1%time units
   for i=1:numel(X)
+   %natural dynamics
    Xnat=BH(X(i),r)*arg_W(t);%natural BH dynamics
    Xnat=myround(Xnat,st);
-   XRem_i=[0:st:Xnat]';%possible removals
-   U_i=zeros(size(XRem_i));
-   Z_i=zeros(size(XRem_i));
-   for j=1:numel(XRem_i)
-    Xrem=XRem_i(j);
-    Xfin=Xnat-Xrem;%final state
-    Usp=X(i).*arg_Qr(t);%cost of spillover
-    if Xrem==0
-     Utr=0;
-    else
-     Z1=arg_beta>=2*arg_alpha/(k*log(2));%pesticides can be used
-     Z2=arg_beta<=2*arg_alpha/(X(i)*log(2));%sterile males can be used
-     Z_i(j)=Z1+2*Z2;%code of treatment (1 = pesticide, 2 = sterile males, 3 = both)
-     switch Z_i(j)
-      case 1%pesticide alone
-       A=log2(Xnat/Xfin);
-       Utr=arg_alpha*A;%cost of treatment
-      case 2%sterile males alone
-       M=0.5*X(i)*(Xnat/Xfin-1);
-       Utr=arg_beta*M;%cost of treatment
-      otherwise%pesticides+sterile males
-       k=X(i)*Xnat/Xfin;
-       A=log2(k*log(2)*arg_beta/arg_alpha)-1;
-       M=arg_alpha/(arg_beta*log(2))-X(i)/2;
-       Utr=arg_alpha*A+arg_beta*M;%cost of treatment
-       if isnan(Utr)%handling Ctr=NaN (if alpha=beta=0)
-        if Xfin==0
-         Utr=inf;
-        else
-         Utr=0;
-        end
-       end
-     end%switch Z
-    end%Utr
-    Ufur=U_opt(1+round(Xfin/st),t+1);%cost of further treatment
-    U_i(j)=Usp+Utr+Ufur;
-   end%j
-   [U_opt(i,t),min_pos]=min(U_i);
-   Res_Xrem_opt(i,t)=Z_i(min_pos)+XRem_i(min_pos);
+   
+   %posiible removals from natiral dynamics, and corresponding final states
+   Xrem_i=[0:st:Xnat]';
+   Xfin_i=Xnat-Xrem_i;
+   
+   %tretment costs and tretment methods for each removal
+   Utr_i=zeros(size(Xrem_i));
+   Ztr_i=zeros(size(Xrem_i));
+   
+   k_i=X(i)*Xnat./Xfin_i;
+   Z1=arg_beta>=2*arg_alpha./(k_i*log(2));%pesticides can be used
+   Z2=arg_beta<=2*arg_alpha/(X(i)*log(2));%sterile males can be used
+   Ztr_i=Z1+2*Z2;%treatment method: 1 = pesticide, 2 = sterile males, 3 = both
+   
+   %treatment costs - pesticides
+   A1=log2(Xnat./Xfin_i(Ztr_i==1));
+   Utr_i(Ztr_i==1)=arg_alpha*A1;
+   
+   %treatment cost -sterile males 
+   M2=0.5*X(i)*(Xnat./Xfin_i(Ztr_i==2)-1);
+   Utr_i(Ztr_i==2)=arg_beta*M2;
+   
+   %treatment cost - both
+   if any(Ztr_i==3)
+    A3=log2(k_i(Ztr_i==3)*log(2)*arg_beta/arg_alpha)-1;
+    M3=arg_alpha/(arg_beta*log(2))-X(i)/2;
+    Utr3=arg_alpha*A3+arg_beta*M3;
+    %handling NaN
+    Xfin3=Xfin_i(Ztr_i==3);
+    Utr3(isnan(Utr3))=1./(Xfin3(isnan(Utr3))~=0)-1;
+    Utr_i(Ztr_i==3)=Utr3;
+   end
+   
+   %no treatment = no cost
+   Utr_i(Xrem_i==0)=0;
+   Ztr_i(Xrem_i==0)=0;
+   
+   %spillover cost
+   Usp=X(i).*arg_Qr(t);
+   
+   %further costs
+   Ufur_i=U_opt(1+round(Xfin_i/st),t+1);
+   
+   %total costs
+   U_i=Usp+Utr_i+Ufur_i;
+   
+   %[U_opt(i,t),min_pos]=min(U_i);
+   %Res_Xrem_opt(i,t)=Ztr_i(min_pos)+Xrem_i(min_pos);
+   
+   min_val=min(U_i);
+   all_min_pos=find(U_i==min_val);
+   [~,max_rem_pos]=max(Xrem_i(all_min_pos));
+   best_min_pos=all_min_pos(max_rem_pos);
+   U_opt(i,t)=min_val;
+   Res_Xrem_opt(i,t)=Ztr_i(best_min_pos)+Xrem_i(best_min_pos);
   end%i
  end%t
  Res_Ctot=U_opt(:,1);
@@ -176,6 +190,9 @@ disp('Identifying the optimal treatment strategy...');
 [Xrem_opt,Ctot]=DP(DynQc,DynW,alpha,beta);
 Nopt=get_Nopt(Xrem_opt,DynW,n0);%restores population dynamics followomg the optimal solution
 
+Z=fix(Nopt(3:2:end))'
+uZ=unique(Z)
+
 %====================
 % RESULTS
 % Saves the output row containing:
@@ -185,6 +202,7 @@ Nopt=get_Nopt(Xrem_opt,DynW,n0);%restores population dynamics followomg the opti
 % - total cost of eradication
 %====================
 Out=[s c h r alpha beta Nopt DynQc' Ctot(1+round(n0/st))];%output
+CC=Out(end)
 save('-ascii','out.dat','Out');
 disp('The strategy found and saved.');
 toc;
